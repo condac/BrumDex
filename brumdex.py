@@ -149,7 +149,7 @@ class PokemonApp(QMainWindow):
             caught = self.caught_status.get(str(pokemon["no"]), False)
 
             # Apply search and filter logic
-            if self.search_text and self.search_text not in f"#{int(pokemon["no"]):04} {pokemon["name"]["en"]}":
+            if self.search_text and self.search_text not in f"#{int(pokemon['no']):04} {pokemon['name']['en']}":
                 continue
 
             if self.filter_mode == "Caught" and not caught:
