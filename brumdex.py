@@ -14,7 +14,7 @@ class PokemonApp(QMainWindow):
 
     def __init__(self, pokemon_data):
         super().__init__()
-        self.setWindowTitle("Pokémon Viewer")
+        self.setWindowTitle("BrumDex Pokémon tracker")
         self.setGeometry(100, 100, 800, 600)
         
         self.pokemon_data = pokemon_data
