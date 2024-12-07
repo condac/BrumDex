@@ -116,7 +116,7 @@ class PokemonApp(QMainWindow):
         else:
             self.caught_status = {}
 
-        self.refresh_grid()
+        self.refresh_grid(force=True)
 
     def save_caught_status(self):
         """Save the caught status to the current save file."""
@@ -229,17 +229,17 @@ class PokemonApp(QMainWindow):
     def update_search(self, text):
         """Update search text and refresh the grid."""
         self.search_text = text.lower()
-        self.refresh_grid()
+        self.refresh_grid(force=True)
 
     def update_filter(self, mode):
         """Update filter mode and refresh the grid."""
         self.filter_mode = mode
-        self.refresh_grid()
+        self.refresh_grid(force=True)
 
-    def refresh_grid(self):
+    def refresh_grid(self, force=False):
         """Clear and repopulate the grid layout."""
         column_count = max(1, self.width() // 150)
-        if (column_count == self.prevColumncount):
+        if (column_count == self.prevColumncount and force == False):
             self.redrawwing = False
             return
         for i in reversed(range(self.grid_layout.count())):
