@@ -3,10 +3,10 @@ import json
 import os
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QVBoxLayout, QLineEdit, QLabel, QCheckBox, QWidget,
-    QScrollArea, QGridLayout, QComboBox, QHBoxLayout, QPushButton, QDialog, QInputDialog
+    QScrollArea, QGridLayout, QComboBox, QHBoxLayout, QPushButton, QDialog, QInputDialog, QSpacerItem, QSizePolicy
 )
-from PyQt5.QtGui import QPixmap
-from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QPixmap, QFont
+from PyQt5.QtCore import Qt, QTimer
 
 
 class PokemonApp(QMainWindow):
@@ -24,7 +24,9 @@ class PokemonApp(QMainWindow):
         
         self.search_text = ""
         self.filter_mode = "All"  # Options: "All", "Caught", "Uncaught"
-
+        
+        self.redrawwing = False
+        self.prevColumncount = 0
         self.initUI()
         self.load_save_file()
 
@@ -125,6 +127,8 @@ class PokemonApp(QMainWindow):
         file_path = os.path.join(self.SAVE_DIR, f"{self.save_file}.json")
         with open(file_path, "w", encoding="utf-8") as file:
             json.dump(self.caught_status, file, indent=4)
+        
+        print("save ",f"{self.save_file}.json",  self.caught_status)
 
     def show_error(self, message):
         """Show an error dialog."""
@@ -140,10 +144,11 @@ class PokemonApp(QMainWindow):
 
     def populate_grid(self):
         """Populate the grid layout with Pokémon items."""
-        self.grid_layout.setSpacing(10)
+        self.grid_layout.setSpacing(0)
         column_count = max(1, self.width() // 150)  # Dynamic columns based on window width
         row, col = 0, 0
-
+        self.prevColumncount = column_count
+        
         for pokemon in self.pokemon_data:
             name = pokemon["name"]["en"].lower()
             caught = self.caught_status.get(str(pokemon["no"]), False)
@@ -156,11 +161,11 @@ class PokemonApp(QMainWindow):
                 continue
             if self.filter_mode == "Uncaught" and caught is True:
                 continue
-
+            # print(name, caught)
             # Create a widget for each Pokémon
             poke_widget = QWidget()
             poke_layout = QVBoxLayout()
-
+            poke_layout.setSpacing(0)
             # Pokémon Image (placeholder for now)
             img_label = QLabel()
             pokename = pokemon['name']['en'].lower().replace("♀", "f").replace("♂", "m").replace("'", "").replace(" ", "").replace(".", "").replace(" ", "").replace("é", "e").replace("-", "")
@@ -175,9 +180,20 @@ class PokemonApp(QMainWindow):
             img_label.setPixmap(pixmap)
             img_label.setAlignment(Qt.AlignCenter)
 
+
+            font = QFont()
+            font.setPointSize(13)  # Set the font size
+            
+        
+            # Pokémon Number
+            number_label = QLabel(f"#{int(pokemon['no']):04}")
+            number_label.setAlignment(Qt.AlignCenter)
+            number_label.setFont(font)
+            
             # Pokémon Name
-            name_label = QLabel(f"#{int(pokemon['no']):04} {pokemon['name']['en']}")
+            name_label = QLabel(f"{pokemon['name']['en']}")
             name_label.setAlignment(Qt.AlignCenter)
+            name_label.setFont(font)
 
             # Checkbox for Caught Status
             checkbox = QCheckBox("Caught")
@@ -186,6 +202,7 @@ class PokemonApp(QMainWindow):
 
             # Add to the Pokémon widget layout
             poke_layout.addWidget(img_label)
+            poke_layout.addWidget(number_label)
             poke_layout.addWidget(name_label)
             poke_layout.addWidget(checkbox)
             poke_widget.setLayout(poke_layout)
@@ -193,9 +210,21 @@ class PokemonApp(QMainWindow):
             # Add the Pokémon widget to the grid
             self.grid_layout.addWidget(poke_widget, row, col)
             col += 1
-            if col >= column_count:
+            if col > column_count:
                 col = 0
                 row += 1
+        verticalSpacer = QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding)
+        poke_widget = QWidget()
+        poke_layout = QVBoxLayout()
+        poke_layout.addItem(verticalSpacer)
+        poke_widget.setLayout(poke_layout)
+        self.grid_layout.addWidget(poke_widget, row+1, col)
+        horizontalSpacer = QSpacerItem(20, 40, QSizePolicy.Expanding, QSizePolicy.Minimum)
+        poke_widget = QWidget()
+        poke_layout = QVBoxLayout()
+        poke_layout.addItem(horizontalSpacer)
+        poke_widget.setLayout(poke_layout)
+        self.grid_layout.addWidget(poke_widget, row+1, column_count+1)
 
     def update_search(self, text):
         """Update search text and refresh the grid."""
@@ -209,18 +238,31 @@ class PokemonApp(QMainWindow):
 
     def refresh_grid(self):
         """Clear and repopulate the grid layout."""
+        column_count = max(1, self.width() // 150)
+        if (column_count == self.prevColumncount):
+            self.redrawwing = False
+            return
         for i in reversed(range(self.grid_layout.count())):
             self.grid_layout.itemAt(i).widget().setParent(None)  # Clear the grid layout
         self.populate_grid()
+        self.redrawwing = False
 
     def resizeEvent(self, event):
         """Handle window resizing to adapt the grid layout."""
         super().resizeEvent(event)
-        self.refresh_grid()
+        
+        if self.redrawwing:
+            pass
+        else:
+            QTimer.singleShot(500, self.refresh_grid)
+            self.redrawwing = True
+        
 
     def toggle_caught(self, state, no):
-        self.caught_status[no] = (state == Qt.Checked)
+        # print("Cought ", state, no)
+        self.caught_status[str(no)] = (state == Qt.Checked)
         self.save_caught_status()
+        # print("toggle_caught", self.caught_status)
 
 
 if __name__ == "__main__":
