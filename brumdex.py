@@ -1,13 +1,86 @@
 import sys
 import json
 import os
+from PyQt5 import QtWidgets, QtCore, QtGui 
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QVBoxLayout, QLineEdit, QLabel, QCheckBox, QWidget,
     QScrollArea, QGridLayout, QComboBox, QHBoxLayout, QPushButton, QDialog, QInputDialog, QSpacerItem, QSizePolicy
 )
 from PyQt5.QtGui import QPixmap, QFont
 from PyQt5.QtCore import Qt, QTimer
+QtWidgets.QApplication.setAttribute(QtCore.Qt.AA_EnableHighDpiScaling, True) #enable highdpi scaling
+QtWidgets.QApplication.setAttribute(QtCore.Qt.AA_UseHighDpiPixmaps, True) #use highdpi icons
 
+
+import platform
+import subprocess
+import ctypes
+import sys
+
+def get_dpi_settings():
+    system = platform.system()
+
+    if system == "Windows":
+        return get_dpi_windows()
+    elif system == "Linux":
+        return get_dpi_linux()
+    elif system == "Darwin":  # macOS
+        return get_dpi_mac()
+    else:
+        raise NotImplementedError(f"Unsupported platform: {system}")
+
+def get_dpi_windows():
+    try:
+        user32 = ctypes.windll.user32
+        ctypes.windll.shcore.SetProcessDpiAwareness(2)  # Per-monitor DPI awareness
+        hdc = user32.GetDC(0)
+        dpi_x = ctypes.windll.gdi32.GetDeviceCaps(hdc, 88)  # LOGPIXELSX
+        user32.ReleaseDC(0, hdc)
+        return dpi_x
+    except Exception as e:
+        print(f"Error getting DPI on Windows: {e}")
+        return None
+
+def get_dpi_linux():
+    try:
+        output = subprocess.run(
+            ["xdpyinfo"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+        )
+        lines = output.stdout.splitlines()
+        for line in lines:
+            if "dots per inch" in line:
+                dpi = int(line.split(":")[1].strip().split("x")[0])
+                return dpi
+        return 96  # Fallback to default DPI
+    except Exception as e:
+        print(f"Error getting DPI on Linux: {e}")
+        return None
+
+def get_dpi_mac():
+    try:
+        from AppKit import NSScreen
+        from Quartz import CGDisplayScreenSize
+        screens = NSScreen.screens()
+        for screen in screens:
+            description = screen.deviceDescription()
+            display_id = description["NSScreenNumber"]
+            display_size = CGDisplayScreenSize(display_id)  # millimeters
+            width_px = screen.frame().size.width
+            dpi = (width_px / (display_size.width / 25.4))
+            return dpi
+    except Exception as e:
+        print(f"Error getting DPI on macOS: {e}")
+        return None
+
+
+def get_scale_factor():
+
+    dpi_x = get_dpi_settings()
+    
+    # Calculate scale factor (e.g., 96 DPI is 100%, 144 DPI is 150%, etc.)
+    scale_factor = dpi_x / 96.0
+    return scale_factor
+SCALEFACTOR = get_scale_factor()
 
 class PokemonApp(QMainWindow):
     SAVE_DIR = "savefiles"
@@ -27,6 +100,9 @@ class PokemonApp(QMainWindow):
         
         self.redrawwing = False
         self.prevColumncount = 0
+        
+        
+        print(SCALEFACTOR)
         self.initUI()
         self.load_save_file()
 
@@ -145,7 +221,7 @@ class PokemonApp(QMainWindow):
     def populate_grid(self):
         """Populate the grid layout with Pokémon items."""
         self.grid_layout.setSpacing(0)
-        column_count = max(1, self.width() // 150)  # Dynamic columns based on window width
+        column_count = int(max(1, self.width() // (150*SCALEFACTOR) ) ) # Dynamic columns based on window width
         row, col = 0, 0
         self.prevColumncount = column_count
         
@@ -176,7 +252,7 @@ class PokemonApp(QMainWindow):
                 print("File not exists", pokename, pokemon['name']['en'])
                 filename = f"sprites/placeholder.png"
             pixmap = QPixmap(filename)  # Replace with actual image path
-            pixmap = pixmap.scaled(100, 100, Qt.KeepAspectRatio)
+            pixmap = pixmap.scaled(int(100*SCALEFACTOR), int(100*SCALEFACTOR), Qt.KeepAspectRatio)
             img_label.setPixmap(pixmap)
             img_label.setAlignment(Qt.AlignCenter)
 
@@ -267,6 +343,8 @@ class PokemonApp(QMainWindow):
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
+    font = QFont("Arial", 9)  # You can specify the font family and size
+    app.setFont(font)
     
     # Load Pokémon data from JSON file
     with open("pokemon.json", "r", encoding="utf-8") as file:
