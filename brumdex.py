@@ -163,7 +163,7 @@ class PokemonApp(QMainWindow):
 
             # Pokémon Image (placeholder for now)
             img_label = QLabel()
-            pokename = pokemon['name']['en'].lower().replace("♀", "f").replace("♂", "m").replace("'", "")
+            pokename = pokemon['name']['en'].lower().replace("♀", "f").replace("♂", "m").replace("'", "").replace(" ", "").replace(".", "").replace(" ", "").replace("é", "e").replace("-", "")
             filename = f"sprites/{pokename}.png"
             if os.path.exists(filename):
                 pass
@@ -176,7 +176,7 @@ class PokemonApp(QMainWindow):
             img_label.setAlignment(Qt.AlignCenter)
 
             # Pokémon Name
-            name_label = QLabel(f"#{int(pokemon["no"]):04} {pokemon["name"]["en"]}")
+            name_label = QLabel(f"#{int(pokemon['no']):04} {pokemon['name']['en']}")
             name_label.setAlignment(Qt.AlignCenter)
 
             # Checkbox for Caught Status
