@@ -17,7 +17,7 @@ base_url = "https://cobblemon.tools/pokedex/pokemon/{}/sprite.png" # https://cob
 
 # Loop through each Pokémon and download its sprite
 for pokemon in pokemon_data:
-    name = pokemon['name']['en'].lower().replace("♀", "f").replace("♂", "m")
+    name = pokemon['name']['en'].lower().replace("♀", "f").replace("♂", "m").replace("'", "")
     sprite_url = base_url.format(name)
     output_path = os.path.join(output_folder, f"{name}.png")
     if os.path.exists(output_path):
