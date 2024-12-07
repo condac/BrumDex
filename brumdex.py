@@ -2,7 +2,8 @@ import sys
 import json
 import os
 from PyQt5.QtWidgets import (
-    QApplication, QMainWindow, QVBoxLayout, QLabel, QCheckBox, QWidget, QScrollArea, QGridLayout
+    QApplication, QMainWindow, QVBoxLayout, QLineEdit, QLabel, QCheckBox, QWidget, 
+    QScrollArea, QGridLayout, QComboBox, QHBoxLayout
 )
 from PyQt5.QtGui import QPixmap
 from PyQt5.QtCore import Qt
@@ -19,11 +20,30 @@ class PokemonApp(QMainWindow):
         self.pokemon_data = pokemon_data
         self.caught_status = self.load_caught_status()
 
+        # Filter and search state
+        self.search_text = ""
+        self.filter_mode = "All"  # Options: "All", "Caught", "Uncaught"
+
         self.initUI()
 
     def initUI(self):
         main_widget = QWidget()
         main_layout = QVBoxLayout()
+
+        # Search and filter bar
+        filter_bar = QHBoxLayout()
+
+        search_box = QLineEdit()
+        search_box.setPlaceholderText("Search Pokémon by name...")
+        search_box.textChanged.connect(self.update_search)
+        filter_bar.addWidget(search_box)
+
+        filter_dropdown = QComboBox()
+        filter_dropdown.addItems(["All", "Caught", "Uncaught"])
+        filter_dropdown.currentTextChanged.connect(self.update_filter)
+        filter_bar.addWidget(filter_dropdown)
+
+        main_layout.addLayout(filter_bar)
 
         # Scroll area for Pokémon grid
         scroll_area = QScrollArea()
@@ -42,12 +62,25 @@ class PokemonApp(QMainWindow):
         self.setCentralWidget(main_widget)
 
     def populate_grid(self):
-        """Populate the grid layout with Pokémon items."""
+        """Populate the grid layout with Pokémon items based on filters."""
         self.grid_layout.setSpacing(10)
         column_count = max(1, self.width() // 150)  # Dynamic columns based on window width
         row, col = 0, 0
 
         for pokemon in self.pokemon_data:
+            name = pokemon["name"]["en"].lower()
+            caught = self.caught_status.get(str(pokemon["no"]), False)
+
+            # Apply search filter
+            if self.search_text and self.search_text not in name:
+                continue
+
+            # Apply caught/uncaught filter
+            if self.filter_mode == "Caught" and not caught:
+                continue
+            if self.filter_mode == "Uncaught" and caught is True:
+                continue
+
             # Create a widget for each Pokémon
             poke_widget = QWidget()
             poke_layout = QVBoxLayout()
@@ -55,7 +88,13 @@ class PokemonApp(QMainWindow):
             # Pokémon Image (placeholder for now)
             img_label = QLabel()
             pokename = pokemon['name']['en'].lower().replace("♀", "f").replace("♂", "m")
-            pixmap = QPixmap(f"sprites/{pokename}.png")  # Replace with actual image path
+            filename = f"sprites/{pokename}.png"
+            if os.path.exists(filename):
+                pass
+            else:
+                print("File not exists", pokename, pokemon['name']['en'])
+                filename = f"sprites/placeholder.png"
+            pixmap = QPixmap(filename)  # Replace with actual image path
             pixmap = pixmap.scaled(100, 100, Qt.KeepAspectRatio)
             img_label.setPixmap(pixmap)
             img_label.setAlignment(Qt.AlignCenter)
@@ -66,8 +105,8 @@ class PokemonApp(QMainWindow):
 
             # Checkbox for Caught Status
             checkbox = QCheckBox("Caught")
-            checkbox.setChecked(self.caught_status.get(str(pokemon["no"]), False))
-            checkbox.stateChanged.connect(lambda state, no=str(pokemon["no"]): self.toggle_caught(state, no))
+            checkbox.setChecked(caught)
+            checkbox.stateChanged.connect(lambda state, no=pokemon["no"]: self.toggle_caught(state, no))
 
             # Add to the Pokémon widget layout
             poke_layout.addWidget(img_label)
@@ -82,12 +121,26 @@ class PokemonApp(QMainWindow):
                 col = 0
                 row += 1
 
+    def update_search(self, text):
+        """Update search text and refresh the grid."""
+        self.search_text = text.lower()
+        self.refresh_grid()
+
+    def update_filter(self, mode):
+        """Update filter mode and refresh the grid."""
+        self.filter_mode = mode
+        self.refresh_grid()
+
+    def refresh_grid(self):
+        """Clear and repopulate the grid layout."""
+        for i in reversed(range(self.grid_layout.count())):
+            self.grid_layout.itemAt(i).widget().setParent(None)  # Clear the grid layout
+        self.populate_grid()  # Re-populate with updated filters
+
     def resizeEvent(self, event):
         """Handle window resizing to adapt the grid layout."""
         super().resizeEvent(event)
-        for i in reversed(range(self.grid_layout.count())):
-            self.grid_layout.itemAt(i).widget().setParent(None)  # Clear the grid layout
-        self.populate_grid()  # Re-populate with updated column count
+        self.refresh_grid()
 
     def toggle_caught(self, state, no):
         self.caught_status[no] = (state == Qt.Checked)
