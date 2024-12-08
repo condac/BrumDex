@@ -1,6 +1,7 @@
 import sys
 import json
 import os
+import requests
 from PyQt5 import QtWidgets, QtCore, QtGui 
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QVBoxLayout, QLineEdit, QLabel, QCheckBox, QWidget,
@@ -101,6 +102,8 @@ class PokemonApp(QMainWindow):
         self.redrawwing = False
         self.prevColumncount = 0
         
+        self.journeyMobs = ""
+        
         
         print(SCALEFACTOR)
         self.initUI()
@@ -132,10 +135,11 @@ class PokemonApp(QMainWindow):
         search_box = QLineEdit()
         search_box.setPlaceholderText("Search Pokémon by name...")
         search_box.textChanged.connect(self.update_search)
+        search_box.setClearButtonEnabled(True)
         filter_bar.addWidget(search_box)
 
         filter_dropdown = QComboBox()
-        filter_dropdown.addItems(["All", "Caught", "Uncaught"])
+        filter_dropdown.addItems(["All", "Caught", "Uncaught", "JourneyMap"])
         filter_dropdown.currentTextChanged.connect(self.update_filter)
         filter_bar.addWidget(filter_dropdown)
 
@@ -154,8 +158,27 @@ class PokemonApp(QMainWindow):
         scroll_area.setWidget(scroll_widget)
 
         main_layout.addWidget(scroll_area)
+        
+        bottom_bar = QHBoxLayout()
+        
+        # Label with number of pokemons cought
+        self.counter_label = QLabel()
+        self.counter_label.setText("Hej")
+        bottom_bar.addWidget(self.counter_label)
+        
+        # Label with connection info
+        self.journeyStatus_label = QLabel()
+        self.journeyStatus_label.setText("JHej")
+        
+        bottom_bar.addWidget(self.journeyStatus_label)
+        main_layout.addLayout(bottom_bar)
+        
         main_widget.setLayout(main_layout)
         self.setCentralWidget(main_widget)
+        
+        self.timerJM = QTimer()
+        self.timerJM.timeout.connect(self.getJourneyMap)
+        self.timerJM.start(5000)
 
     def get_save_files(self):
         """Get a list of save files in the save directory."""
@@ -237,6 +260,15 @@ class PokemonApp(QMainWindow):
                 continue
             if self.filter_mode == "Uncaught" and caught is True:
                 continue
+            pokename = pokemon['name']['en'].lower().replace("♀", "f").replace("♂", "m").replace("'", "").replace(" ", "").replace(".", "").replace(" ", "").replace("é", "e").replace("-", "")
+            
+            if self.filter_mode == "JourneyMap":
+                # print("kollar om ", str(pokemon["no"]), "finns i", self.journeyMobs)
+                pokenr = f"{int(pokemon['no']):04}"
+                if pokenr not in self.journeyMobs:
+                    continue
+            # if self.filter_mode == "JourneyMap" and pokename not in self.journeyMobs:
+            #     continue
             # print(name, caught)
             # Create a widget for each Pokémon
             poke_widget = QWidget()
@@ -244,7 +276,6 @@ class PokemonApp(QMainWindow):
             poke_layout.setSpacing(0)
             # Pokémon Image (placeholder for now)
             img_label = QLabel()
-            pokename = pokemon['name']['en'].lower().replace("♀", "f").replace("♂", "m").replace("'", "").replace(" ", "").replace(".", "").replace(" ", "").replace("é", "e").replace("-", "")
             filename = f"sprites/{pokename}.png"
             if os.path.exists(filename):
                 pass
@@ -321,8 +352,20 @@ class PokemonApp(QMainWindow):
         for i in reversed(range(self.grid_layout.count())):
             self.grid_layout.itemAt(i).widget().setParent(None)  # Clear the grid layout
         self.populate_grid()
+        
+        self.updateCounter()
         self.redrawwing = False
 
+    def updateCounter(self):
+        # Count catched pokemons
+        counter = 0
+        # print("count", self.caught_status)
+        for pok in self.caught_status:
+            # print("count", pok)
+            if self.caught_status[pok] == True:
+                counter += 1
+        self.counter_label.setText(f"Catched pokemons: {counter}")
+        
     def resizeEvent(self, event):
         """Handle window resizing to adapt the grid layout."""
         super().resizeEvent(event)
@@ -338,9 +381,32 @@ class PokemonApp(QMainWindow):
         # print("Cought ", state, no)
         self.caught_status[str(no)] = (state == Qt.Checked)
         self.save_caught_status()
+        self.updateCounter()
         # print("toggle_caught", self.caught_status)
 
 
+    def getJourneyMap(self):
+        
+        if self.filter_mode == "JourneyMap":
+            try:
+                # Fetch the sprite
+                response = requests.get("http://localhost:8080/data/animals")
+                response.raise_for_status()  # Raise an exception for HTTP errors
+                self.journeyMobs = ""
+                for line in response.content.decode().splitlines():
+                    if "cobblemon" in line:
+                        self.journeyMobs += line
+                        if "shiny" in line:
+                            print("SHINY !!!!!!!!!!!", line)
+                print(f"Updated journeymap")
+                self.journeyStatus_label.setText(f"Updated journeymap")
+                # print(self.journeyMobs)
+                self.refresh_grid(force=True)
+
+            except requests.RequestException as e:
+                print(f"Failed to update journeymap")
+                self.journeyStatus_label.setText(f"Failed to update journeymap")
+        
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     font = QFont("Arial", 9)  # You can specify the font family and size
